@@ -47,7 +47,36 @@ function useOrientationLock(orientation: Settings['orientation']) {
 
 function toggleFullscreen() {
   if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
-  else document.documentElement.requestFullscreen?.().catch(() => {});
+  else enterFullscreen();
+}
+
+function enterFullscreen() {
+  if (document.fullscreenElement) return;
+  document.documentElement.requestFullscreen?.({ navigationUI: 'hide' }).catch(() => {});
+}
+
+// Sur téléphone, les gestes système d'Android (balayer depuis le bas = accueil) passent avant la page :
+// un glisser qui démarre près du bord renvoie l'appli à l'arrière-plan. En plein écran immersif, le
+// premier balayage ne fait qu'afficher les barres. On y entre au premier toucher (un tap ou la fin
+// d'un glisser comptent comme geste utilisateur), et on en sort en quittant le prompteur.
+function useAutoFullscreen(enabled: boolean) {
+  const entered = useRef(false);
+  useEffect(
+    () => () => {
+      if (entered.current && document.fullscreenElement) document.exitFullscreen().catch(() => {});
+    },
+    [],
+  );
+  return useCallback(
+    (e: React.SyntheticEvent) => {
+      // Chrome transmet aussi le type de pointeur sur les clics : seul le tactile est concerné.
+      const touch = (e.nativeEvent as PointerEvent).pointerType === 'touch';
+      if (!enabled || !touch || document.fullscreenElement) return;
+      entered.current = true;
+      enterFullscreen();
+    },
+    [enabled],
+  );
 }
 
 export function Prompter({ script }: { script: Script }) {
@@ -79,6 +108,7 @@ export function Prompter({ script }: { script: Script }) {
 
   useWakeLock();
   useOrientationLock(settings.orientation);
+  const autoFullscreen = useAutoFullscreen(settings.autoFullscreen);
 
   // --- Défilement ---
   const maxScroll = useCallback(() => {
@@ -255,6 +285,7 @@ export function Prompter({ script }: { script: Script }) {
     }
   };
   const onPointerUp = (e: React.PointerEvent) => {
+    autoFullscreen(e);
     const d = drag.current;
     drag.current = null;
     if (!d || d.moved) return;
@@ -408,7 +439,13 @@ export function Prompter({ script }: { script: Script }) {
                 <button className="btn ghost" onClick={() => nudgeSpeed(0.5)} aria-label="Accélérer">
                   +
                 </button>
-                <button className="btn primary play" onClick={togglePlay}>
+                <button
+                  className="btn primary play"
+                  onClick={(e) => {
+                    autoFullscreen(e);
+                    togglePlay();
+                  }}
+                >
                   {playing || count !== null ? '❚❚ Pause' : '▶ Lecture'}
                 </button>
               </>

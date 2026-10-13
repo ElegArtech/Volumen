@@ -174,6 +174,15 @@ export function SettingsPanel(props: { settings: Settings; update: Update; mode:
           Évite que le téléphone pivote tout seul une fois posé à plat. Fonctionne en plein écran ou avec
           l'appli installée.
         </p>
+        <Toggle
+          label="Plein écran automatique (tactile)"
+          value={s.autoFullscreen}
+          onChange={(autoFullscreen) => update({ autoFullscreen })}
+        />
+        <p className="field-help">
+          Dès que tu touches le prompteur, Android masque ses barres : glisser le texte vers le haut depuis
+          le bas de l'écran ne renvoie plus à l'accueil (il faudrait balayer deux fois).
+        </p>
       </Group>
 
       <Group title="Couleurs">

@@ -17,6 +17,9 @@ export type Settings = {
   glass: boolean;
   glassPlacement: 'camera' | 'me';
   orientation: 'auto' | 'portrait' | 'landscape';
+  // Plein écran immersif dès qu'on touche le prompteur : Android masque ses barres et il faut
+  // alors deux balayages depuis le bord pour quitter l'appli (le glisser du texte ne la ferme plus).
+  autoFullscreen: boolean;
   align: 'left' | 'center';
   fontFamily: 'sans' | 'serif' | 'mono';
   textColor: string;
@@ -38,6 +41,7 @@ export const DEFAULT_SETTINGS: Settings = {
   glass: false,
   glassPlacement: 'camera',
   orientation: 'auto',
+  autoFullscreen: true,
   align: 'left',
   fontFamily: 'sans',
   textColor: '#ffffff',
