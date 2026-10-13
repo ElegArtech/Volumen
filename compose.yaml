@@ -1,0 +1,10 @@
+services:
+  volumen:
+    build: .
+    image: volumen:latest
+    restart: unless-stopped
+    # Local uniquement : l'accès passe par `tailscale serve --https=8443`.
+    ports:
+      - 127.0.0.1:8787:8787
+    volumes:
+      - ./data:/data
