@@ -350,6 +350,7 @@ kbd {
 }
 .slide {
   position: absolute;
+  top: 0;
   left: 50%;
   animation: slide-in 0.18s ease-out;
 }
@@ -409,6 +410,20 @@ kbd {
   right: 16px;
   font: 600 16px system-ui, sans-serif;
   opacity: 0.4;
+}
+.slide-more {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  font: 600 18px system-ui, sans-serif;
+  opacity: 0.4;
+  pointer-events: none;
+}
+.slide-more.up {
+  top: 8px;
+}
+.slide-more.down {
+  bottom: 8px;
 }
 .countdown {
   position: absolute;

@@ -92,7 +92,10 @@ export function Prompter({ script }: { script: Script }) {
   const stageRef = useRef<HTMLDivElement>(null);
   const scrollerRef = useRef<HTMLDivElement>(null);
   const textRef = useRef<HTMLDivElement>(null);
+  const slideRef = useRef<HTMLDivElement>(null);
   const scrolled = useRef(0);
+  const slideScrolled = useRef(0);
+  const [slideMore, setSlideMore] = useState({ up: false, down: false });
   const settingsRef = useRef(settings);
   settingsRef.current = settings;
 
@@ -130,12 +133,51 @@ export function Prompter({ script }: { script: Script }) {
     el.style.transform = `translate3d(0, ${y}px, 0)`;
   }, [maxScroll]);
 
+  // --- Slide plus haute que l'écran : on la fait défiler à l'intérieur ---
+  const slideBounds = useCallback(() => {
+    const stage = stageRef.current;
+    const el = slideRef.current;
+    if (!stage || !el) return { top: 0, max: 0 };
+    const h = stage.clientHeight;
+    const s = settingsRef.current;
+    const margin = h * 0.05;
+    const anchor = (h * (s.slidePosition === 'zone' ? s.zoneTop + s.zoneHeight / 2 : s.startPosition)) / 100;
+    // Centrée, une slide trop haute déborderait par le haut : on garde son début visible.
+    const top = Math.max(s.slidePosition === 'zone' ? anchor - el.offsetHeight / 2 : anchor, Math.min(anchor, margin));
+    // En bas, de quoi dégager la dernière ligne de la barre de commandes.
+    return { top, max: Math.max(0, top + el.offsetHeight - h * 0.88) };
+  }, []);
+
+  const applySlide = useCallback(() => {
+    const el = slideRef.current;
+    if (!el) return;
+    const { top, max } = slideBounds();
+    slideScrolled.current = clamp(slideScrolled.current, 0, max);
+    el.style.transform = `translate(-50%, ${top - slideScrolled.current}px)`;
+    const up = slideScrolled.current > 1;
+    const down = slideScrolled.current < max - 1;
+    setSlideMore((m) => (m.up === up && m.down === down ? m : { up, down }));
+  }, [slideBounds]);
+
+  const scrubSlide = useCallback(
+    (px: number) => {
+      slideScrolled.current += px;
+      applySlide();
+    },
+    [applySlide],
+  );
+
   useLayoutEffect(apply, [settings, script.content, mode, apply]);
+  useLayoutEffect(applySlide, [settings, script.content, mode, slide, applySlide]);
 
   useEffect(() => {
-    window.addEventListener('resize', apply);
-    return () => window.removeEventListener('resize', apply);
-  }, [apply]);
+    const onResize = () => {
+      apply();
+      applySlide();
+    };
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, [apply, applySlide]);
 
   useEffect(() => {
     if (!playing || mode !== 'scroll') return;
@@ -210,7 +252,9 @@ export function Prompter({ script }: { script: Script }) {
     setCount(null);
     setSlide(0);
     scrolled.current = 0;
+    slideScrolled.current = 0;
     apply();
+    applySlide();
   };
 
   const nudgeSpeed = (delta: number) => {
@@ -220,8 +264,22 @@ export function Prompter({ script }: { script: Script }) {
   };
 
   // --- Slides ---
-  const next = () => setSlide(Math.min(slideIdx + 1, slides.length - 1));
-  const prev = () => setSlide(Math.max(slideIdx - 1, 0));
+  // Si la slide déborde, « suivante » / « précédente » la font d'abord défiler d'environ un écran.
+  const slidePage = () => (stageRef.current?.clientHeight ?? 600) * 0.6;
+  const goSlide = (i: number) => {
+    const target = clamp(i, 0, slides.length - 1);
+    if (target === slideIdx) return;
+    slideScrolled.current = 0;
+    setSlide(target);
+  };
+  const next = () => {
+    if (slideScrolled.current < slideBounds().max - 1) scrubSlide(slidePage());
+    else goSlide(slideIdx + 1);
+  };
+  const prev = () => {
+    if (slideScrolled.current > 1) scrubSlide(-slidePage());
+    else goSlide(slideIdx - 1);
+  };
 
   const setMode = (m: Mode) => {
     if (m === mode) return;
@@ -257,7 +315,7 @@ export function Prompter({ script }: { script: Script }) {
       } else {
         if ([' ', 'Enter', 'PageDown', 'ArrowRight', 'ArrowDown'].includes(k)) next();
         else if (['PageUp', 'ArrowLeft', 'ArrowUp', 'Backspace'].includes(k)) prev();
-        else if (k === 'End') setSlide(slides.length - 1);
+        else if (k === 'End') goSlide(slides.length - 1);
         else handled = false;
       }
       if (handled) e.preventDefault();
@@ -279,8 +337,10 @@ export function Prompter({ script }: { script: Script }) {
     const d = drag.current;
     if (!d) return;
     if (!d.moved && Math.hypot(e.clientX - d.x, e.clientY - d.y) > 10) d.moved = true;
-    if (d.moved && mode === 'scroll') {
-      scrubBy(-(e.clientY - d.last) * flipY);
+    if (d.moved) {
+      const dy = -(e.clientY - d.last) * flipY;
+      if (mode === 'scroll') scrubBy(dy);
+      else scrubSlide(dy);
       d.last = e.clientY;
     }
   };
@@ -313,7 +373,6 @@ export function Prompter({ script }: { script: Script }) {
     textAlign: s.align,
   };
   const zoneBottom = Math.min(100, s.zoneTop + s.zoneHeight);
-  const slideTop = s.slidePosition === 'zone' ? s.zoneTop + s.zoneHeight / 2 : s.startPosition;
 
   return (
     <div className="prompter">
@@ -325,15 +384,7 @@ export function Prompter({ script }: { script: Script }) {
             </div>
           </div>
         ) : (
-          <div
-            key={slideIdx}
-            className="slide prompt-text"
-            style={{
-              ...textStyle,
-              top: `${slideTop}%`,
-              transform: s.slidePosition === 'zone' ? 'translate(-50%, -50%)' : 'translateX(-50%)',
-            }}
-          >
+          <div key={slideIdx} ref={slideRef} className="slide prompt-text" style={textStyle}>
             <RichText text={slides[slideIdx]} />
           </div>
         )}
@@ -366,6 +417,8 @@ export function Prompter({ script }: { script: Script }) {
             {slideIdx + 1} / {slides.length}
           </div>
         )}
+        {mode === 'slides' && slideMore.up && <div className="slide-more up">▲</div>}
+        {mode === 'slides' && slideMore.down && <div className="slide-more down">▼</div>}
         {count !== null && count > 0 && <div className="countdown">{count}</div>}
         {flash && <div className="flash">{flash}</div>}
       </div>
@@ -376,7 +429,7 @@ export function Prompter({ script }: { script: Script }) {
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
         onPointerCancel={() => (drag.current = null)}
-        onWheel={(e) => mode === 'scroll' && scrubBy(e.deltaY * flipY)}
+        onWheel={(e) => (mode === 'scroll' ? scrubBy : scrubSlide)(e.deltaY * flipY)}
       />
 
 
@@ -454,13 +507,13 @@ export function Prompter({ script }: { script: Script }) {
                 <button className="btn ghost" onClick={restart} title="Première slide (Début)">
                   ⏮
                 </button>
-                <button className="btn ghost" onClick={prev} disabled={slideIdx === 0}>
+                <button className="btn ghost" onClick={prev} disabled={slideIdx === 0 && !slideMore.up}>
                   ◀ Précédente
                 </button>
                 <span className="speed">
                   {slideIdx + 1} / {slides.length}
                 </span>
-                <button className="btn primary" onClick={next} disabled={slideIdx === slides.length - 1}>
+                <button className="btn primary" onClick={next} disabled={slideIdx === slides.length - 1 && !slideMore.down}>
                   Suivante ▶
                 </button>
               </>

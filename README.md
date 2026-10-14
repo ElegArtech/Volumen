@@ -7,6 +7,7 @@ Téléprompteur web installable (PWA) avec synchro temps réel entre le PC et le
 - **Défilement** : vitesse, taille, interligne, largeur du texte, **point de départ** à l'écran,
   zone de lecture (position, hauteur, assombrissement), repère, compte à rebours.
 - **Slides** : sépare les blocs par une ligne `---` ; toucher / clic / télécommande = slide suivante.
+  Une slide plus haute que l'écran défile : glisser / molette, et « suivante » descend d'abord dans la slide.
 - **Mode vitre sans tain** pour un téléphone posé à plat sous la vitre : retournement vertical si le haut
   du texte pointe vers la caméra (cas courant), horizontal s'il pointe vers soi. Orientation de l'écran verrouillable.
 - **Dossiers** : un dossier par vidéo (ex. « Vlog 2 »), un script par séquence, dans l'ordre de tournage
@@ -64,7 +65,7 @@ Sur le téléphone (Android) : ouvrir l'URL dans Chrome → menu ⋮ → **Insta
 | `m` / `f` / `s` | vitre / plein écran / réglages | idem |
 | Échap | pause, puis retour à l'éditeur | idem |
 
-Tactile : toucher = lecture/pause, glisser = avancer/reculer. En slides : toucher à droite = suivante, à gauche = précédente.
+Tactile : toucher = lecture/pause, glisser = avancer/reculer. En slides : toucher à droite = suivante, à gauche = précédente, glisser = faire défiler une slide trop longue (▲ ▼ signalent la suite).
 
 Les réglages d'affichage sont propres à chaque appareil ; les scripts sont partagés.
 
